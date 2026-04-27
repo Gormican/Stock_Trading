@@ -1,0 +1,84 @@
+@echo off
+title Taylor's Trading Agent
+color 0A
+cls
+echo.
+echo  ============================================
+echo    Taylor's Trading Agent  -  Starting Up
+echo  ============================================
+echo.
+
+:: ── Step 1: Check Python ─────────────────────────────────────────────────────
+echo  [1/3] Checking Python...
+python --version
+if %errorlevel% neq 0 (
+    echo.
+    echo  *** ERROR: Python is not installed or not in PATH ***
+    echo.
+    echo  Please do this:
+    echo    1. Go to https://www.python.org/downloads/
+    echo    2. Click the big yellow Download button
+    echo    3. Run the installer
+    echo    4. IMPORTANT: Check the box "Add Python to PATH" before clicking Install
+    echo    5. Then double-click this file again
+    echo.
+    pause
+    exit /b 1
+)
+echo  Python OK!
+echo.
+
+:: ── Step 2: Install Streamlit if missing ─────────────────────────────────────
+echo  [2/3] Checking Streamlit...
+python -c "import streamlit" 2>nul
+if %errorlevel% neq 0 (
+    echo  Installing packages for the first time - this takes 1-2 minutes...
+    echo.
+    pip install streamlit pandas yfinance feedparser vaderSentiment alpaca-py
+    if %errorlevel% neq 0 (
+        echo.
+        echo  *** ERROR: Could not install packages ***
+        echo  Try running this window as Administrator (right-click the .bat file)
+        echo.
+        pause
+        exit /b 1
+    )
+    echo.
+    echo  Packages installed successfully!
+)
+echo  Streamlit OK!
+echo.
+
+:: ── Step 3: Launch ───────────────────────────────────────────────────────────
+echo  [3/3] Starting the app...
+echo.
+echo  ============================================
+echo   App is running!
+echo.
+echo   Open Brave and go to:
+echo.
+echo        http://localhost:8501
+echo.
+echo   Keep this window open while using the app.
+echo   Close this window to stop the app.
+echo  ============================================
+echo.
+
+:: Try to open Brave automatically
+set BRAVE="%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe"
+if exist %BRAVE% (
+    echo  Opening Brave in 4 seconds...
+    timeout /t 4 /nobreak >nul
+    start "" %BRAVE% http://localhost:8501
+) else (
+    echo  Opening browser in 4 seconds...
+    timeout /t 4 /nobreak >nul
+    start "" http://localhost:8501
+)
+
+:: Run Streamlit (this keeps the window open)
+python -m streamlit run "%~dp0app.py" --server.headless true --browser.gatherUsageStats false --server.port 8501
+
+echo.
+echo  The app has stopped. Press any key to close.
+pause

@@ -1,0 +1,21 @@
+# Taylor's Autonomous Trading Agent — Dependencies
+# Install: pip install -r requirements.txt
+
+# Core
+alpaca-py>=0.20.0          # Alpaca trading + market data API
+yfinance>=0.2.36           # Yahoo Finance historical data (fallback)
+pandas>=2.0.0
+numpy>=1.24.0
+feedparser>=6.0.11         # RSS news feeds (Yahoo, CNBC, MarketWatch)
+requests>=2.31.0
+
+# Sentiment / NLP
+vaderSentiment>=3.3.2      # Free offline NLP sentiment (no API key needed)
+praw>=7.7.1                # Reddit API (r/wallstreetbets, r/stocks)
+newsapi-python>=0.2.7      # NewsAPI.org (100 free requests/day)
+
+# Dashboard
+streamlit>=1.32.0          # Web UI with sliders, charts, dashboard
+
+# Utilities
+python-dotenv>=1.0.0       # .env file support for secrets
