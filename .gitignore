@@ -1,0 +1,39 @@
+# ── API Keys & Secrets (NEVER commit these) ───────────────────────────────────
+config.json
+.env
+*.env
+secrets.json
+
+# ── Trade & Agent Logs (personal data, stays local) ──────────────────────────
+*.log
+taylor_trade_log.json
+taylor_agent_trade_history.json
+taylor_risk_state.json
+backtest_results.json
+
+# ── Python cache ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+venv/
+env/
+.venv/
+.env/
+
+# ── OS files ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor files ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Streamlit cache ───────────────────────────────────────────────────────────
+.streamlit/
