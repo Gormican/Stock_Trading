@@ -84,13 +84,48 @@ FREQUENCY_INTERVALS = {
 
 
 # ==============================================================================
+# NEWS SCHEDULE HELPERS
+# ==============================================================================
+
+def should_refresh_news(cfg: dict, last_news_check: datetime | None) -> bool:
+    """
+    Returns True if it's time to pull fresh news/sentiment data.
+    news_check_frequency options:
+        daily_noon  — once per day at 12:00 PM ET  (default)
+        daily_open  — once per day at 9:30 AM ET
+        every_2h    — every 2 hours
+        every_scan  — always (current behaviour)
+    """
+    freq = cfg.get("trading", {}).get("news_check_frequency", "daily_noon")
+    now_et = datetime.now(timezone.utc) + timedelta(hours=-4)
+
+    if freq == "every_scan" or last_news_check is None:
+        return True
+
+    if freq == "every_2h":
+        return (now_et - last_news_check).total_seconds() >= 7200
+
+    # For daily schedules, only refresh once per day at the target hour
+    if last_news_check.date() == now_et.date():
+        return False   # already refreshed today
+
+    if freq == "daily_noon":
+        return now_et.hour >= 12
+    if freq == "daily_open":
+        return now_et.hour >= 9 and now_et.minute >= 30
+
+    return True  # fallback
+
+
+# ==============================================================================
 # CORE EVALUATION LOOP
 # ==============================================================================
 
 def run_evaluation(cfg: dict, executor: TradeExecutor, risk: RiskManager,
                    data: MarketDataEngine, sentiment: SentimentEngine,
                    gpa_engine: GPAEngine, alerts: AlertEngine,
-                   scanner: TrendingScanner) -> list:
+                   scanner: TrendingScanner,
+                   sentiment_cache: dict | None = None) -> list:
     """
     One full scan cycle:
     1. Get trending stocks
@@ -99,7 +134,10 @@ def run_evaluation(cfg: dict, executor: TradeExecutor, risk: RiskManager,
     4. Execute buys/sells
     5. Send alerts
     Returns list of GPA results.
+    sentiment_cache: if provided, use cached sentiment data instead of fetching fresh.
     """
+    if sentiment_cache is None:
+        sentiment_cache = {}
     log.info("=" * 60)
     log.info(f"SCAN CYCLE — {datetime.now().strftime('%Y-%m-%d %H:%M ET')}")
     log.info("=" * 60)
@@ -133,7 +171,13 @@ def run_evaluation(cfg: dict, executor: TradeExecutor, risk: RiskManager,
             log.info(f"\n  Evaluating {symbol}...")
             ohlcv        = data.get_bars(symbol, days=90)
             fundamentals = data.get_fundamentals(symbol)
-            sent         = sentiment.get_combined_sentiment(symbol)
+            # Use cached sentiment if available, otherwise fetch fresh
+            if symbol in sentiment_cache:
+                sent = sentiment_cache[symbol]
+                log.info(f"    Using cached sentiment for {symbol}")
+            else:
+                sent = sentiment.get_combined_sentiment(symbol)
+                sentiment_cache[symbol] = sent
             snapshot     = data.get_snapshot(symbol)
 
             # ── Beta and market cap filter ───────────────────────────────────
@@ -295,6 +339,12 @@ def main():
 
     interval = FREQUENCY_INTERVALS.get(cfg["trading"]["frequency"], 1800)
 
+    # News caching — tracks last fetch time and cached results
+    sentiment_cache: dict = {}
+    last_news_check: datetime | None = None
+    news_freq = cfg.get("trading", {}).get("news_check_frequency", "daily_noon")
+    log.info(f"News check schedule: {news_freq}")
+
     # Main loop
     session_scores = []
     try:
@@ -305,9 +355,18 @@ def main():
                     break
                 sleep_until_market_open()
 
+            # Decide whether to refresh news or use cache
+            if should_refresh_news(cfg, last_news_check):
+                log.info("Refreshing news & sentiment data...")
+                sentiment_cache = {}   # clear cache — fresh fetch in run_evaluation
+                last_news_check = datetime.now(timezone.utc) + timedelta(hours=-4)
+            else:
+                log.info(f"Using cached news sentiment (next refresh: {news_freq})")
+
             scores = run_evaluation(
                 cfg, executor, risk, data, sentiment,
-                gpa_engine, alerts, scanner
+                gpa_engine, alerts, scanner,
+                sentiment_cache=sentiment_cache,
             )
             session_scores.extend(scores)
 

@@ -8,6 +8,7 @@ import logging
 import feedparser
 import requests
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
 import pandas as pd
 import numpy as np
@@ -106,11 +107,17 @@ class MarketDataEngine:
             "pe_ttm": None, "peg": None, "market_cap": None, "beta": None,
             "dividend_yield": None, "sector": None, "industry": None,
             "eps_growth_5y": None, "revenue_growth": None,
+            # Extended fields for new GPA model
+            "enterprise_to_ebitda": None, "analyst_recommendation": None,
+            "earnings_estimate_current_year": None, "earnings_estimate_next_year": None,
+            "five_year_avg_growth": None, "beat_expectations": None,
+            "target_price": None, "current_price": None,
         }
         if not YF_AVAILABLE:
             return result
         try:
-            info = yf.Ticker(symbol).info
+            ticker = yf.Ticker(symbol)
+            info   = ticker.info
             result.update({
                 "roe":               info.get("returnOnEquity"),
                 "earnings_growth_yoy": info.get("earningsGrowth"),
@@ -126,10 +133,40 @@ class MarketDataEngine:
                 "revenue_growth":    info.get("revenueGrowth"),
                 "forward_pe":        info.get("forwardPE"),
                 "name":              info.get("longName", symbol),
+                # Extended
+                "enterprise_to_ebitda":           info.get("enterpriseToEbitda"),
+                "analyst_recommendation":          info.get("recommendationMean"),
+                "five_year_avg_growth":            info.get("earningsGrowth", 0) * 100
+                                                   if info.get("earningsGrowth") else None,
+                "target_price":                    info.get("targetMeanPrice"),
+                "current_price":                   info.get("currentPrice") or info.get("regularMarketPrice"),
+                "earnings_estimate_current_year":  self._safe_est_growth(info, "currentYear"),
+                "earnings_estimate_next_year":     self._safe_est_growth(info, "nextYear"),
             })
+            # Beat expectations: % of last 4 quarters where EPS beat estimate
+            try:
+                hist = ticker.earnings_history
+                if hist is not None and not hist.empty and len(hist) >= 2:
+                    beats = (hist["epsActual"] > hist["epsEstimate"]).sum()
+                    result["beat_expectations"] = round(beats / len(hist), 2)
+            except Exception:
+                pass
         except Exception as e:
             log.debug(f"Fundamentals failed for {symbol}: {e}")
         return result
+
+    @staticmethod
+    def _safe_est_growth(info: dict, period: str) -> float:
+        """Try to extract forward earnings growth % from yfinance info."""
+        try:
+            # yfinance sometimes has these in earningsGrowth or forwardEpsGrowth
+            if period == "currentYear":
+                v = info.get("earningsGrowth") or info.get("revenueGrowth")
+            else:
+                v = info.get("forwardEpsGrowth") or info.get("earningsGrowth")
+            return round(float(v) * 100, 1) if v is not None else None
+        except Exception:
+            return None
 
     def get_snapshot(self, symbol: str) -> dict:
         """Gets current price snapshot."""
@@ -390,3 +427,52 @@ class TrendingScanner:
         top    = [t for t, s in ranked[:n]]
         log.info(f"Top trending: {top[:8]}")
         return top
+
+
+# ==============================================================================
+# DATAENGINE — unified wrapper used by app.py
+# ==============================================================================
+
+class DataEngine:
+    """
+    Convenience wrapper so app.py can do:
+        de = DataEngine()
+        de.get_fundamentals(symbol)
+        de.get_sentiment(symbol)
+    Loads config automatically; falls back gracefully if config is missing.
+    """
+
+    _DEFAULT_CFG = {
+        "data_sources": {
+            "primary_market_data": "yfinance",
+            "reddit_client_id":     "",
+            "reddit_client_secret": "",
+            "reddit_user_agent":    "TaylorTradingAgent/1.0",
+        },
+        "alpaca": {"api_key": "", "secret_key": ""},
+    }
+
+    def __init__(self):
+        cfg_path = Path(__file__).parent.parent / "config.json"
+        try:
+            import json
+            cfg = json.loads(cfg_path.read_text()) if cfg_path.exists() else {}
+            # Merge with defaults so missing keys don't cause crashes
+            self._cfg = {**self._DEFAULT_CFG, **cfg}
+            # Ensure nested keys exist
+            self._cfg.setdefault("data_sources", self._DEFAULT_CFG["data_sources"])
+            self._cfg.setdefault("alpaca",       self._DEFAULT_CFG["alpaca"])
+        except Exception:
+            self._cfg = self._DEFAULT_CFG
+
+        self._market = MarketDataEngine(self._cfg)
+        self._sentiment = SentimentEngine(self._cfg)
+
+    def get_fundamentals(self, symbol: str) -> dict:
+        return self._market.get_fundamentals(symbol)
+
+    def get_sentiment(self, symbol: str) -> dict:
+        return self._sentiment.get_combined_sentiment(symbol)
+
+    def get_bars(self, symbol: str, days: int = 90):
+        return self._market.get_bars(symbol, days)

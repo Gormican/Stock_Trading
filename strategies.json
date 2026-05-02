@@ -1,0 +1,28 @@
+{
+  "Steve1": {
+    "name": "Steve1",
+    "created": "2026-05-02 14:28",
+    "weights": {
+      "sentiment": 0.35,
+      "fundamentals": 0.3,
+      "technical": 0.35,
+      "fund_sub": {
+        "valuation": 0.33,
+        "financial": 0.33,
+        "estimates": 0.34
+      },
+      "tech_sub": {
+        "trend": 0.6,
+        "oscillators": 0.4
+      }
+    },
+    "thresholds": {
+      "min_gpa_to_buy": 3.5,
+      "min_gpa_to_show": 3.0,
+      "max_gpa_to_sell": 2.5,
+      "min_gpa_to_alert": 3.5
+    },
+    "auto_trade": true,
+    "description": "Balanced across all categories"
+  }
+}

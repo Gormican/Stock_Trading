@@ -49,8 +49,15 @@ if %errorlevel% neq 0 (
 echo  Streamlit OK!
 echo.
 
-:: ── Step 3: Launch ───────────────────────────────────────────────────────────
-echo  [3/3] Starting the app...
+:: ── Step 3: Clear port 8501 if already in use ────────────────────────────────
+echo  [3/4] Clearing port 8501 if already running...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8501 2^>nul') do (
+    taskkill /f /pid %%a >nul 2>&1
+)
+timeout /t 2 /nobreak >nul
+
+:: ── Step 4: Launch ───────────────────────────────────────────────────────────
+echo  [4/4] Starting the app...
 echo.
 echo  ============================================
 echo   App is running!
@@ -77,7 +84,8 @@ if exist %BRAVE% (
 )
 
 :: Run Streamlit (this keeps the window open)
-python -m streamlit run "%~dp0app.py" --server.headless true --browser.gatherUsageStats false --server.port 8501
+cd /d C:\Users\sgorm\Stock
+python -m streamlit run "C:\Users\sgorm\Stock\app.py" --server.headless true --browser.gatherUsageStats false --server.port 8501
 
 echo.
 echo  The app has stopped. Press any key to close.
