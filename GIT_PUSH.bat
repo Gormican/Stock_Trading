@@ -1,33 +1,69 @@
 @echo off
-title Push Code to GitHub
+title Push Trading Agent to GitHub
 color 0A
 cls
 echo.
 echo  ============================================
-echo    Saving Your Trading Agent to GitHub
+echo    Push Trading Agent to GitHub
 echo  ============================================
 echo.
 
-cd /d C:\Users\%USERNAME%\Stock
+cd /d "C:\Users\sgorm\Stock"
 
-echo  Adding files...
+:: Check this is actually a git repo
+if not exist ".git" (
+    echo  ERROR: C:\Users\sgorm\Stock is not a git repository.
+    echo  Run "git init" and connect it to GitHub first.
+    echo.
+    pause
+    exit /b 1
+)
+
+:: Suppress LF/CRLF warnings (Windows uses CRLF, Linux/Mac use LF — Git normalizes automatically)
+git config core.autocrlf true
+
+:: Remove .claude/ from tracking if it was accidentally added before
+git rm -r --cached .claude/ >nul 2>&1
+
+:: Show what changed
+echo  Changed files:
+echo  --------------------------------------------
+git status --short
+echo.
+
+:: Ask for a commit message (or use a timestamp default)
+set /p MSG="  Commit message (press Enter for timestamp): "
+if "%MSG%"=="" (
+    for /f "tokens=1-3 delims=/ " %%a in ("%date%") do set D=%%c-%%a-%%b
+    for /f "tokens=1-2 delims=: " %%a in ("%time%") do set T=%%a:%%b
+    set MSG=Update %D% %T%
+)
+
+echo.
+echo  Adding all files...
 git add .
-git reset HEAD config.json
 
-set /p MSG="Enter a commit message (what did you change?): "
-if "%MSG%"=="" set MSG=Update trading agent
-
+echo  Committing: %MSG%
 git commit -m "%MSG%"
 
-echo.
 echo  Pushing to GitHub...
-git push origin main
+git push
 
 echo.
-echo  ============================================
-echo   Done! Your code is safely on GitHub.
-echo   config.json was NOT uploaded (your keys
-echo   are safe on your computer only).
-echo  ============================================
+if %ERRORLEVEL%==0 (
+    color 0A
+    echo  ============================================
+    echo   Done! Changes pushed to GitHub.
+    echo  ============================================
+) else (
+    color 0C
+    echo  ============================================
+    echo   Push failed. See error above.
+    echo   Common fixes:
+    echo     - Check internet connection
+    echo     - Run: git remote -v   (verify remote URL)
+    echo     - Run: git pull        (if remote has newer commits)
+    echo  ============================================
+)
 echo.
 pause

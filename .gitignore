@@ -3,7 +3,11 @@ config.json
 
 # ── Runtime files — local only ───────────────────────────────────────────────
 gpa_cache.json
+sentiment_cache.json
 strategies.json
+
+# ── Claude internal working folders — never commit ───────────────────────────
+.claude/
 
 # ── Python bytecode ──────────────────────────────────────────────────────────
 __pycache__/
