@@ -21,7 +21,7 @@ from modules.data_engine      import DataEngine
 from modules.gpa_scorer       import GPAEngine
 
 log = logging.getLogger("TradingApp")
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.INFO)
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 BASE_DIR  = Path(__file__).parent
@@ -343,12 +343,45 @@ def get_spy_df():
     return st.session_state.spy_df
 
 
+def _load_av_key() -> str:
+    """
+    Read the Alpha Vantage API key from config.json.
+    Uses case-insensitive partial matching so any section name that contains
+    'alpha' or 'vantage' or 'advantage' will be found regardless of exact wording.
+    """
+    try:
+        cfg = json.loads(CFG_FILE.read_text())
+        # Case-insensitive search: any section whose name contains these tokens
+        for section_key, sec in cfg.items():
+            low = section_key.lower().replace(" ", "").replace("_", "")
+            if any(tok in low for tok in ("alpha", "vantage", "advantage", "alphav")):
+                if isinstance(sec, dict):
+                    for key_name in ("api_key", "key", "apikey", "API_KEY", "Key",
+                                     "api key", "APIKey", "apiKey"):
+                        val = sec.get(key_name, "")
+                        if val:
+                            log.info(f"AV key loaded from config section '{section_key}'")
+                            return str(val).strip()
+        # Flat key fallback
+        for flat in ("alpha_vantage_key", "av_api_key", "alphavantage_key", "av_key"):
+            val = cfg.get(flat, "")
+            if val:
+                return str(val).strip()
+        # Key not found — log all section names so user can diagnose
+        log.warning(f"AV key not found. Config sections present: {list(cfg.keys())}")
+    except Exception as e:
+        log.warning(f"Could not load AV key: {e}")
+    return ""
+
+
 def build_engine() -> GPAEngine:
     strategy = STRAT_MGR.get(st.session_state.strategy_name)
     engine   = GPAEngine(strategy=strategy)
     spy_df   = get_spy_df()
     if spy_df is not None:
         engine.set_spy_df(spy_df)
+    av_key = _load_av_key()
+    engine.set_api_keys(av_key=av_key)
     return engine
 
 
@@ -568,11 +601,36 @@ def render_gpa_detail(result: dict):
     sent = cats.get("sentiment", {})
     with st.expander(f"😶 Sentiment  {sent.get('score',0):.2f} / 4.0  "
                      f"(weight {sent.get('weight',0.20)*100:.0f}%)", expanded=False):
-        d = sent.get("detail", {})
+        d      = sent.get("detail", {})
+        source = d.get("source", "none")
+        av     = d.get("alpha_vantage", {})
+        st_tw  = d.get("stocktwits", {})
+        legacy = d.get("legacy_vader", {})
+
+        from modules.gpa_scorer import _av_calls_today, AV_DAILY_LIMIT
+        calls_used = _av_calls_today()
+        st.caption(f"Source: **{source}**  ·  AV quota: {calls_used}/{AV_DAILY_LIMIT} calls used today")
         c1, c2, c3 = st.columns(3)
-        c1.metric("Combined Score", f"{d.get('combined_raw',0):.3f}")
-        c2.metric("Velocity",       f"{d.get('velocity',0):.3f}")
-        c3.metric("Headlines",      d.get('headline_count', 0))
+
+        if av:
+            c1.metric("AV Score",    f"{av.get('score', 0):.2f}")
+            c2.metric("AV Label",    av.get("label", "—"))
+            c3.metric("AV Articles", av.get("article_count", 0))
+        elif legacy:
+            c1.metric("Combined Score", f"{legacy.get('combined', 0):.3f}")
+            c2.metric("Velocity",       f"{legacy.get('velocity', 0):.3f}")
+            c3.metric("Headlines",      d.get("headline_count", 0))
+        else:
+            c1.metric("AV Score", "—")
+            c2.metric("AV Label", "No data")
+            c3.metric("AV Articles", 0)
+
+        if st_tw:
+            c4, c5, c6 = st.columns(3)
+            bull_pct = f"{st_tw.get('bullish_ratio', 0)*100:.0f}%"
+            c4.metric("StockTwits Score",   f"{st_tw.get('score', 0):.2f}")
+            c5.metric("Bullish Ratio",      bull_pct)
+            c6.metric("Messages / Tagged",  f"{st_tw.get('messages',0)} / {st_tw.get('tagged',0)}")
 
     # Fundamentals
     fund = cats.get("fundamentals", {})
@@ -590,7 +648,7 @@ def render_gpa_detail(result: dict):
                      "Note":   v.get("label","")}
                     for k, v in sub.get("detail", {}).items()]
             if rows:
-                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     # Technical
     tech = cats.get("technical", {})
@@ -612,7 +670,7 @@ def render_gpa_detail(result: dict):
                         "Note":      v.get("label",""),
                     })
             if rows:
-                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -741,7 +799,7 @@ def render_home():
                         "SELL" if gpa_r.get("sell_signal") else "HOLD")
                        if gpa_r else "—",
         })
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     # ── Strategy comparison table ──────────────────────────────────────────────
     scored_syms = [p["symbol"] for p in positions
@@ -765,7 +823,7 @@ def render_home():
                 comp_rows.append(row)
             if comp_rows:
                 st.caption("GPA under each strategy  ·  🟢 = BUY signal  ·  🔴 = SELL signal")
-                st.dataframe(pd.DataFrame(comp_rows), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(comp_rows), width="stretch", hide_index=True)
     elif positions:
         st.caption("Run **Refresh GPA** to enable Strategy Comparison.")
 
@@ -1129,7 +1187,7 @@ def render_chart():
                 spy_norm = (spy_df["Close"] / spy_df["Close"].iloc[0] * 100).rename("S&P 500")
 
                 chart_df = pd.concat([portfolio_norm, spy_norm], axis=1).dropna()
-                st.line_chart(chart_df, use_container_width=True)
+                st.line_chart(chart_df, width="stretch")
 
                 port_ret = chart_df["My Portfolio"].iloc[-1] - 100
                 spy_ret  = chart_df["S&P 500"].iloc[-1] - 100
@@ -1154,7 +1212,7 @@ def render_chart():
             df = get_comparison_df(chart_sym, period)
 
         if df is not None and not df.empty:
-            st.line_chart(df, use_container_width=True)
+            st.line_chart(df, width="stretch")
             sym_ret = df[chart_sym].iloc[-1] - 100
             spy_ret = df["S&P 500"].iloc[-1]  - 100
             alpha   = sym_ret - spy_ret
