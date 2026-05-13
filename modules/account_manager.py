@@ -4,9 +4,17 @@ Supports: named paper accounts + live account
 Remembers last selected account across sessions
 """
 import json
+import os
 from pathlib import Path
 
 LAST_ACCOUNT_FILE = Path.home() / "taylor_last_account.json"
+
+# Maps account name → (api_key_env_var, secret_key_env_var)
+_ENV_KEY_MAP = {
+    "Taylor": ("ALPACA_PAPER_TAYLOR_API_KEY",  "ALPACA_PAPER_TAYLOR_SECRET_KEY"),
+    "$100K":  ("ALPACA_PAPER_100K_API_KEY",    "ALPACA_PAPER_100K_SECRET_KEY"),
+    "Live":   ("ALPACA_LIVE_API_KEY",           "ALPACA_LIVE_SECRET_KEY"),
+}
 
 ACCOUNT_DEFAULTS = {
     "Taylor": {
@@ -62,7 +70,16 @@ class AccountManager:
         return result
 
     def get(self, name: str) -> dict:
-        return self.get_all().get(name, ACCOUNT_DEFAULTS.get(name, {}))
+        acct = dict(self.get_all().get(name, ACCOUNT_DEFAULTS.get(name, {})))
+        if name in _ENV_KEY_MAP:
+            key_var, secret_var = _ENV_KEY_MAP[name]
+            env_key    = os.getenv(key_var, "").strip()
+            env_secret = os.getenv(secret_var, "").strip()
+            if env_key:
+                acct["api_key"] = env_key
+            if env_secret:
+                acct["secret_key"] = env_secret
+        return acct
 
     def _load_prefs(self) -> dict:
         """Load the preferences file (last account + per-account strategies)."""

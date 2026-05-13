@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import yfinance as yf
+from dotenv import load_dotenv
+load_dotenv()
 
 # ── Module imports ─────────────────────────────────────────────────────────────
 from modules.account_manager  import AccountManager
@@ -345,10 +347,13 @@ def get_spy_df():
 
 def _load_av_key() -> str:
     """
-    Read the Alpha Vantage API key from config.json.
-    Uses case-insensitive partial matching so any section name that contains
-    'alpha' or 'vantage' or 'advantage' will be found regardless of exact wording.
+    Read the Alpha Vantage API key. Checks ALPHA_VANTAGE_API_KEY env var first,
+    then falls back to config.json using case-insensitive section matching.
     """
+    import os
+    env_val = os.getenv("ALPHA_VANTAGE_API_KEY", "").strip()
+    if env_val:
+        return env_val
     try:
         cfg = json.loads(CFG_FILE.read_text())
         # Case-insensitive search: any section whose name contains these tokens

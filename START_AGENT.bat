@@ -62,7 +62,7 @@ echo.
 echo  ============================================
 echo   App is running!
 echo.
-echo   Open Brave and go to:
+echo   Open Edge and go to:
 echo.
 echo        http://localhost:8501
 echo.
@@ -71,12 +71,12 @@ echo   Close this window to stop the app.
 echo  ============================================
 echo.
 
-:: Try to open Brave automatically
-set BRAVE="%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe"
-if exist %BRAVE% (
-    echo  Opening Brave in 4 seconds...
+:: Try to open Edge automatically
+set EDGE="%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
+if exist %EDGE% (
+    echo  Opening Edge in 4 seconds...
     timeout /t 4 /nobreak >nul
-    start "" %BRAVE% http://localhost:8501
+    start "" %EDGE% http://localhost:8501
 ) else (
     echo  Opening browser in 4 seconds...
     timeout /t 4 /nobreak >nul
@@ -84,8 +84,8 @@ if exist %BRAVE% (
 )
 
 :: Run Streamlit (this keeps the window open)
-cd /d C:\Users\sgorm\Stock
-python -m streamlit run "C:\Users\sgorm\Stock\app.py" --server.headless true --browser.gatherUsageStats false --server.port 8501
+cd /d C:\claudeworkspace\Stock
+python -m streamlit run "C:\claudeworkspace\Stock\app.py" --server.headless true --browser.gatherUsageStats false --server.port 8501
 
 echo.
 echo  The app has stopped. Press any key to close.
