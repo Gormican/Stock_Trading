@@ -260,6 +260,7 @@ def _safe(val, multiplier: float = 1.0):
 
 
 def _grade(gpa: float) -> str:
+    """Letter grade per Steve's 9-tier scale (A+ → C-)."""
     if gpa >= 3.7:   return "A+"
     elif gpa >= 3.5: return "A"
     elif gpa >= 3.3: return "A-"
@@ -268,7 +269,20 @@ def _grade(gpa: float) -> str:
     elif gpa >= 2.3: return "B-"
     elif gpa >= 2.0: return "C+"
     elif gpa >= 1.7: return "C"
-    else:            return "D"
+    else:            return "C-"
+
+
+def _recommendation(gpa: float) -> str:
+    """Buy/sell text per Steve's 9-tier scale."""
+    if gpa >= 3.7:   return "Strong Buy"
+    elif gpa >= 3.5: return "Buy"
+    elif gpa >= 3.3: return "Weak Buy"
+    elif gpa >= 3.0: return "Hold/Buy"
+    elif gpa >= 2.7: return "Hold"
+    elif gpa >= 2.3: return "Hold/Sell"
+    elif gpa >= 2.0: return "Weak Sell"
+    elif gpa >= 1.7: return "Sell"
+    else:            return "Strong Sell"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1240,6 +1254,7 @@ class GPAEngine:
                     fund_result["score"] * w_fund +
                     tech_result["score"] * w_tech, 3)
         grade = _grade(gpa)
+        recommendation = _recommendation(gpa)
 
         t           = self.thresholds
         buy_signal  = gpa >= t.get("min_gpa_to_buy",  3.5)
@@ -1257,11 +1272,12 @@ class GPAEngine:
                        if c[1] < (gpa * min(w_sent, w_fund, w_tech))]
 
         return {
-            "symbol":      symbol,
-            "gpa":         gpa,
-            "grade":       grade,
-            "buy_signal":  buy_signal,
-            "sell_signal": sell_signal,
+            "symbol":         symbol,
+            "gpa":            gpa,
+            "grade":          grade,
+            "recommendation": recommendation,
+            "buy_signal":     buy_signal,
+            "sell_signal":    sell_signal,
             "categories": {
                 "sentiment": {
                     "score":        sent_result["score"],

@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime
 
 STRATEGIES_FILE = Path(__file__).parent.parent / "strategies.json"
+STRATEGIES_XLSX = Path(__file__).parent.parent / "Strategies.xlsx"
 
 DEFAULT_WEIGHTS = {
     "sentiment":    0.20,
@@ -154,3 +155,76 @@ class StrategyManager:
                 w["tech_sub"] = {k: round(v / t, 4) for k, v in sub.items()}
 
         return w
+
+    # ── Excel import / export ─────────────────────────────────────────────────
+    def import_from_xlsx(self, xlsx_path: Path | str = STRATEGIES_XLSX) -> dict:
+        """
+        Read Strategies.xlsx and persist every registered strategy to strategies.json.
+        The rich category/subcategory/component tree is preserved under the `tree`
+        key for use by the Config tab; the legacy `weights` field is also written
+        so the existing GPAEngine keeps working unchanged.
+
+        Returns:
+            {
+              "imported": ["Default", ...],
+              "active":   "Default" or None,
+              "skipped":  ["Custom1", ...],  # sheets in workbook but not in Strategies index
+              "errors":   [],
+            }
+        """
+        from modules import strategy_xlsx  # local import to avoid hard dep at startup
+        xlsx_path = Path(xlsx_path)
+        result = {"imported": [], "active": None, "skipped": [], "errors": []}
+        if not xlsx_path.exists():
+            result["errors"].append(f"File not found: {xlsx_path}")
+            return result
+
+        try:
+            data = strategy_xlsx.load_xlsx(xlsx_path)
+        except Exception as e:
+            result["errors"].append(f"Parse error: {e}")
+            return result
+
+        # Existing user strategies on disk
+        user: dict = {}
+        if STRATEGIES_FILE.exists():
+            try:
+                user = json.loads(STRATEGIES_FILE.read_text())
+            except Exception:
+                user = {}
+
+        result["active"] = data.get("_active")
+        for entry in data.get("_index", []):
+            name = entry["name"]
+            rich = data.get(name)
+            if not rich:
+                continue
+            # Built-ins keep their hard-coded defaults; xlsx version is saved as
+            # a regular user strategy so it can be edited/deleted.
+            user[name] = {
+                "name":         name,
+                "created":      f"imported from xlsx {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                "weights":      self.normalize(rich["legacy_weights"]),
+                "thresholds":   dict(DEFAULT_THRESHOLDS),
+                "auto_trade":   False,
+                "description":  rich.get("description", ""),
+                "active":       bool(rich.get("active")),
+                "tree":         rich.get("tree", {}),  # rich tree preserved
+                "source":       "xlsx",
+            }
+            result["imported"].append(name)
+
+        STRATEGIES_FILE.write_text(json.dumps(user, indent=2))
+        return result
+
+    def active_strategy_from_xlsx(self, xlsx_path: Path | str = STRATEGIES_XLSX) -> str | None:
+        """Return the name of the strategy marked ACTIVE in the xlsx, or None."""
+        from modules import strategy_xlsx
+        xlsx_path = Path(xlsx_path)
+        if not xlsx_path.exists():
+            return None
+        try:
+            data = strategy_xlsx.load_xlsx(xlsx_path)
+            return data.get("_active")
+        except Exception:
+            return None

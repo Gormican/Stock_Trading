@@ -24,5 +24,426 @@
     },
     "auto_trade": true,
     "description": "Balanced across all categories"
+  },
+  "Default": {
+    "name": "Default",
+    "created": "imported from xlsx 2026-05-15 23:59",
+    "weights": {
+      "sentiment": 0.33,
+      "fundamentals": 0.33,
+      "technical": 0.34,
+      "fund_sub": {
+        "valuation": 0.25,
+        "financial": 0.25,
+        "estimates": 0.5
+      },
+      "tech_sub": {
+        "trend": 0.6,
+        "oscillators": 0.4
+      }
+    },
+    "thresholds": {
+      "min_gpa_to_buy": 3.5,
+      "min_gpa_to_show": 3.0,
+      "max_gpa_to_sell": 2.5,
+      "min_gpa_to_alert": 3.5
+    },
+    "auto_trade": false,
+    "description": "Tree with three rollup columns and verification totals at top.",
+    "active": true,
+    "tree": {
+      "categories": [
+        {
+          "name": "Sentiment",
+          "weight_input": 0.33,
+          "subcategories": [
+            {
+              "name": "AV News Sentiment Score",
+              "weight_input": 0.5,
+              "components": [
+                {
+                  "name": "AV News Sentiment Score",
+                  "weight_input": 1.0,
+                  "higher_better": true,
+                  "x": 0.35,
+                  "y": 0.15,
+                  "z": 0.0,
+                  "source": "Alpha Vantage",
+                  "data_key": "av_news_sentiment_score",
+                  "notes": "AV NEWS_SENTIMENT bullish-bearish score (-1 to +1)",
+                  "weight": 1.0,
+                  "pct_of_gpa": 0.165
+                }
+              ],
+              "weight": 0.5
+            },
+            {
+              "name": "Reddit Sentiment Score",
+              "weight_input": 0.5,
+              "components": [
+                {
+                  "name": "Reddit Sentiment Score",
+                  "weight_input": 1.0,
+                  "higher_better": true,
+                  "x": 0.5,
+                  "y": 0.2,
+                  "z": 0.0,
+                  "source": "Reddit API",
+                  "data_key": "reddit_sentiment_score",
+                  "notes": "Mean compound polarity of mentions (-1 to +1)",
+                  "weight": 1.0,
+                  "pct_of_gpa": 0.165
+                }
+              ],
+              "weight": 0.5
+            }
+          ],
+          "weight": 0.33
+        },
+        {
+          "name": "Fundamentals",
+          "weight_input": 0.33,
+          "subcategories": [
+            {
+              "name": "Valuation",
+              "weight_input": 0.25,
+              "components": [
+                {
+                  "name": "P/E ttm",
+                  "weight_input": 0.33,
+                  "higher_better": false,
+                  "x": 10.0,
+                  "y": 20.0,
+                  "z": 30.0,
+                  "source": "yfinance",
+                  "data_key": "trailingPE",
+                  "notes": "Trailing twelve-month P/E",
+                  "weight": 0.33,
+                  "pct_of_gpa": 0.027225000000000003
+                },
+                {
+                  "name": "PEG",
+                  "weight_input": 0.33,
+                  "higher_better": false,
+                  "x": 1.0,
+                  "y": 1.5,
+                  "z": 2.0,
+                  "source": "yfinance",
+                  "data_key": "pegRatio",
+                  "notes": "Price/Earnings to Growth",
+                  "weight": 0.33,
+                  "pct_of_gpa": 0.027225000000000003
+                },
+                {
+                  "name": "EV/EBITDA",
+                  "weight_input": 0.34,
+                  "higher_better": false,
+                  "x": 10.0,
+                  "y": 15.0,
+                  "z": 20.0,
+                  "source": "yfinance",
+                  "data_key": "enterpriseToEbitda",
+                  "notes": "Enterprise Value / EBITDA",
+                  "weight": 0.34,
+                  "pct_of_gpa": 0.028050000000000002
+                }
+              ],
+              "weight": 0.25
+            },
+            {
+              "name": "Financials",
+              "weight_input": 0.25,
+              "components": [
+                {
+                  "name": "ROE %",
+                  "weight_input": 0.25,
+                  "higher_better": true,
+                  "x": 25.0,
+                  "y": 15.0,
+                  "z": 5.0,
+                  "source": "yfinance",
+                  "data_key": "returnOnEquity",
+                  "notes": "Return on Equity (percent)",
+                  "weight": 0.25,
+                  "pct_of_gpa": 0.020625
+                },
+                {
+                  "name": "Earnings Growth LFY %",
+                  "weight_input": 0.25,
+                  "higher_better": true,
+                  "x": 25.0,
+                  "y": 15.0,
+                  "z": 5.0,
+                  "source": "yfinance",
+                  "data_key": "earningsGrowth",
+                  "notes": "YoY earnings growth, last fiscal year",
+                  "weight": 0.25,
+                  "pct_of_gpa": 0.020625
+                },
+                {
+                  "name": "Debt/Equity",
+                  "weight_input": 0.25,
+                  "higher_better": false,
+                  "x": 0.0,
+                  "y": 0.5,
+                  "z": 1.0,
+                  "source": "yfinance",
+                  "data_key": "debtToEquity",
+                  "notes": "Total debt / total equity (ratio)",
+                  "weight": 0.25,
+                  "pct_of_gpa": 0.020625
+                },
+                {
+                  "name": "Dividend Yield %",
+                  "weight_input": 0.25,
+                  "higher_better": true,
+                  "x": 4.0,
+                  "y": 2.0,
+                  "z": 0.01,
+                  "source": "yfinance",
+                  "data_key": "dividendYield",
+                  "notes": "Forward dividend yield (percent)",
+                  "weight": 0.25,
+                  "pct_of_gpa": 0.020625
+                }
+              ],
+              "weight": 0.25
+            },
+            {
+              "name": "Estimates",
+              "weight_input": 0.25,
+              "components": [
+                {
+                  "name": "Beat Rate % (last 4 Q)",
+                  "weight_input": 0.15,
+                  "higher_better": true,
+                  "x": 75.0,
+                  "y": 50.0,
+                  "z": 25.0,
+                  "source": "yfinance",
+                  "data_key": "earnings_history_beat_pct",
+                  "notes": "Percent of last 4 quarters beating consensus",
+                  "weight": 0.15,
+                  "pct_of_gpa": 0.012375
+                },
+                {
+                  "name": "Est Revision Trend %",
+                  "weight_input": 0.15,
+                  "higher_better": true,
+                  "x": 75.0,
+                  "y": 50.0,
+                  "z": 25.0,
+                  "source": "yfinance",
+                  "data_key": "estimate_revision_up_pct",
+                  "notes": "Percent of estimates revised up over last 30 days",
+                  "weight": 0.15,
+                  "pct_of_gpa": 0.012375
+                },
+                {
+                  "name": "Est Current Qtr Growth %",
+                  "weight_input": 0.14,
+                  "higher_better": true,
+                  "x": 20.0,
+                  "y": 10.0,
+                  "z": 0.0,
+                  "source": "yfinance",
+                  "data_key": "earningsQuarterlyGrowth",
+                  "notes": "Expected YoY growth current quarter",
+                  "weight": 0.14,
+                  "pct_of_gpa": 0.011550000000000001
+                },
+                {
+                  "name": "Est Next Qtr Growth %",
+                  "weight_input": 0.14,
+                  "higher_better": true,
+                  "x": 20.0,
+                  "y": 10.0,
+                  "z": 0.0,
+                  "source": "yfinance",
+                  "data_key": "earningsNextQuarterGrowth",
+                  "notes": "Expected YoY growth next quarter",
+                  "weight": 0.14,
+                  "pct_of_gpa": 0.011550000000000001
+                },
+                {
+                  "name": "Est Current Yr Growth %",
+                  "weight_input": 0.14,
+                  "higher_better": true,
+                  "x": 20.0,
+                  "y": 10.0,
+                  "z": 0.0,
+                  "source": "yfinance",
+                  "data_key": "earningsCurrentYearGrowth",
+                  "notes": "Expected YoY growth current fiscal year",
+                  "weight": 0.14,
+                  "pct_of_gpa": 0.011550000000000001
+                },
+                {
+                  "name": "Est Next Yr Growth %",
+                  "weight_input": 0.14,
+                  "higher_better": true,
+                  "x": 20.0,
+                  "y": 10.0,
+                  "z": 0.0,
+                  "source": "yfinance",
+                  "data_key": "earningsNextYearGrowth",
+                  "notes": "Expected YoY growth next fiscal year",
+                  "weight": 0.14,
+                  "pct_of_gpa": 0.011550000000000001
+                },
+                {
+                  "name": "Est 5yr Growth %",
+                  "weight_input": 0.14,
+                  "higher_better": true,
+                  "x": 20.0,
+                  "y": 10.0,
+                  "z": 0.0,
+                  "source": "yfinance",
+                  "data_key": "earningsLongTermGrowth",
+                  "notes": "Long-term (~5yr) consensus growth",
+                  "weight": 0.14,
+                  "pct_of_gpa": 0.011550000000000001
+                }
+              ],
+              "weight": 0.25
+            },
+            {
+              "name": "Analyst Buy Rating",
+              "weight_input": 0.25,
+              "components": [
+                {
+                  "name": "Analyst Buy Rating",
+                  "weight_input": 1.0,
+                  "higher_better": false,
+                  "x": 1.5,
+                  "y": 2.0,
+                  "z": 2.6,
+                  "source": "yfinance",
+                  "data_key": "recommendationMean",
+                  "notes": "Mean analyst rec (1=Strong Buy, 5=Strong Sell)",
+                  "weight": 1.0,
+                  "pct_of_gpa": 0.0825
+                }
+              ],
+              "weight": 0.25
+            }
+          ],
+          "weight": 0.33
+        },
+        {
+          "name": "Technical",
+          "weight_input": 0.34,
+          "subcategories": [
+            {
+              "name": "Trend",
+              "weight_input": 0.6,
+              "components": [
+                {
+                  "name": "3 Mo Trend Slope %/day",
+                  "weight_input": 0.25,
+                  "higher_better": true,
+                  "x": 0.2,
+                  "y": 0.05,
+                  "z": 0.0,
+                  "source": "yfinance (calc)",
+                  "data_key": "trend_3mo_slope_pct",
+                  "notes": "Daily % from linear regression last ~63 days",
+                  "weight": 0.25,
+                  "pct_of_gpa": 0.051000000000000004
+                },
+                {
+                  "name": "1 Yr Trend Slope %/day",
+                  "weight_input": 0.25,
+                  "higher_better": true,
+                  "x": 0.1,
+                  "y": 0.03,
+                  "z": 0.0,
+                  "source": "yfinance (calc)",
+                  "data_key": "trend_1yr_slope_pct",
+                  "notes": "Daily % from linear regression last ~252 days",
+                  "weight": 0.25,
+                  "pct_of_gpa": 0.051000000000000004
+                },
+                {
+                  "name": "Price vs 50d MA %",
+                  "weight_input": 0.25,
+                  "higher_better": true,
+                  "x": 5.0,
+                  "y": 0.0,
+                  "z": -5.0,
+                  "source": "yfinance (calc)",
+                  "data_key": "price_vs_sma50_pct",
+                  "notes": "(Close - SMA50)/SMA50 \u00d7 100",
+                  "weight": 0.25,
+                  "pct_of_gpa": 0.051000000000000004
+                },
+                {
+                  "name": "Price vs 200d MA %",
+                  "weight_input": 0.25,
+                  "higher_better": true,
+                  "x": 5.0,
+                  "y": 0.0,
+                  "z": -10.0,
+                  "source": "yfinance (calc)",
+                  "data_key": "price_vs_sma200_pct",
+                  "notes": "(Close - SMA200)/SMA200 \u00d7 100",
+                  "weight": 0.25,
+                  "pct_of_gpa": 0.051000000000000004
+                }
+              ],
+              "weight": 0.6
+            },
+            {
+              "name": "Oscillators",
+              "weight_input": 0.4,
+              "components": [
+                {
+                  "name": "MACD Histogram",
+                  "weight_input": 0.33,
+                  "higher_better": true,
+                  "x": 1.0,
+                  "y": 0.0,
+                  "z": -0.5,
+                  "source": "yfinance (calc)",
+                  "data_key": "macd_hist_value",
+                  "notes": "MACD histogram value",
+                  "weight": 0.33,
+                  "pct_of_gpa": 0.04488
+                },
+                {
+                  "name": "Stochastics %K",
+                  "weight_input": 0.34,
+                  "higher_better": true,
+                  "x": 80.0,
+                  "y": 50.0,
+                  "z": 20.0,
+                  "source": "yfinance (calc)",
+                  "data_key": "stoch_k",
+                  "notes": "%K of 14-day Stochastic",
+                  "weight": 0.34,
+                  "pct_of_gpa": 0.04624
+                },
+                {
+                  "name": "RSI",
+                  "weight_input": 0.33,
+                  "higher_better": true,
+                  "x": 70.0,
+                  "y": 50.0,
+                  "z": 30.0,
+                  "source": "yfinance (calc)",
+                  "data_key": "rsi_14",
+                  "notes": "14-day RSI",
+                  "weight": 0.33,
+                  "pct_of_gpa": 0.04488
+                }
+              ],
+              "weight": 0.4
+            }
+          ],
+          "weight": 0.34
+        }
+      ]
+    },
+    "source": "xlsx"
   }
 }

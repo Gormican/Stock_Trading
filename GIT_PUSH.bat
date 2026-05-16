@@ -8,11 +8,11 @@ echo    Push Trading Agent to GitHub
 echo  ============================================
 echo.
 
-cd /d "C:\Users\sgorm\Stock"
+cd /d "C:\ClaudeWorkspace\Stock"
 
 :: Check this is actually a git repo
 if not exist ".git" (
-    echo  ERROR: C:\Users\sgorm\Stock is not a git repository.
+    echo  ERROR: C:\ClaudeWorkspace\Stock is not a git repository.
     echo  Run "git init" and connect it to GitHub first.
     echo.
     pause

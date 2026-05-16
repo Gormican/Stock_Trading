@@ -1,56 +1,32 @@
 {
-  "ADC_2026-05-04": {
-    "av_score": 2.0,
-    "av_label": "Neutral",
-    "av_article_count": 0,
+  "ADC_2026-05-15": {
+    "av_score": 2.954,
+    "av_label": "Bullish",
+    "av_article_count": 50,
     "av_ok": true
   },
-  "AMZN_2026-05-04": {
-    "av_score": 2.0,
-    "av_label": "Neutral",
-    "av_article_count": 0,
+  "AMZN_2026-05-15": {
+    "av_score": 2.617,
+    "av_label": "Somewhat-Bullish",
+    "av_article_count": 50,
     "av_ok": true
   },
-  "COST_2026-05-04": {
-    "av_score": 2.0,
-    "av_label": "Neutral",
-    "av_article_count": 0,
+  "COST_2026-05-15": {
+    "av_score": 2.96,
+    "av_label": "Bullish",
+    "av_article_count": 50,
     "av_ok": true
   },
-  "DNP_2026-05-04": {
-    "av_score": 2.0,
+  "DNP_2026-05-15": {
+    "av_score": 2.769,
     "av_label": "Neutral",
-    "av_article_count": 0,
+    "av_article_count": 50,
     "av_ok": true
   },
-  "FVRR_2026-05-04": {
-    "av_score": 2.0,
+  "FVRR_2026-05-15": {
+    "av_score": 2.51,
     "av_label": "Neutral",
-    "av_article_count": 0,
-    "av_ok": true
-  },
-  "NVDA_2026-05-04": {
-    "av_score": 2.0,
-    "av_label": "Neutral",
-    "av_article_count": 0,
-    "av_ok": true
-  },
-  "QQQ_2026-05-04": {
-    "av_score": 2.0,
-    "av_label": "Neutral",
-    "av_article_count": 0,
-    "av_ok": true
-  },
-  "TSLA_2026-05-04": {
-    "av_score": 2.0,
-    "av_label": "Neutral",
-    "av_article_count": 0,
-    "av_ok": true
-  },
-  "WMT_2026-05-04": {
-    "av_score": 2.0,
-    "av_label": "Neutral",
-    "av_article_count": 0,
+    "av_article_count": 50,
     "av_ok": true
   }
 }

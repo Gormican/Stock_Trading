@@ -20,7 +20,7 @@ load_dotenv()
 from modules.account_manager  import AccountManager
 from modules.strategy_manager import StrategyManager
 from modules.data_engine      import DataEngine
-from modules.gpa_scorer       import GPAEngine
+from modules.gpa_scorer       import GPAEngine, _recommendation as gpa_recommendation
 
 log = logging.getLogger("TradingApp")
 logging.basicConfig(level=logging.INFO)
@@ -243,9 +243,13 @@ def send_gpa_alert_email(gpa_dict: dict):
 # SESSION STATE INIT
 # ─────────────────────────────────────────────────────────────────────────────
 def init_state():
+    # If a Strategies.xlsx with an ACTIVE flag is present, prefer it as the
+    # startup default. Falls back to the account's saved strategy otherwise.
+    xlsx_active = STRAT_MGR.active_strategy_from_xlsx()
+    acct_default = ACCT_MGR.get_strategy(ACCT_MGR.get_last())
     defaults = {
         "account_name":   ACCT_MGR.get_last(),
-        "strategy_name":  ACCT_MGR.get_strategy(ACCT_MGR.get_last()),
+        "strategy_name":  xlsx_active or acct_default,
         "trade_queue":    [],
         "scan_results":        [],
         "scan_strategy_name":  "Default",
@@ -470,25 +474,26 @@ def reweight_result(r: dict, strategy: dict) -> dict:
         3
     )
 
-    # Grade
-    if   gpa >= 3.7: grade = "A+"
-    elif gpa >= 3.5: grade = "A"
-    elif gpa >= 3.3: grade = "A-"
-    elif gpa >= 3.0: grade = "B+"
-    elif gpa >= 2.7: grade = "B"
-    elif gpa >= 2.3: grade = "B-"
-    elif gpa >= 2.0: grade = "C+"
-    elif gpa >= 1.7: grade = "C"
-    else:            grade = "D"
+    # Grade & recommendation (9-tier scale, see _grade/_recommendation in gpa_scorer.py)
+    if   gpa >= 3.7: grade, rec = "A+", "Strong Buy"
+    elif gpa >= 3.5: grade, rec = "A",  "Buy"
+    elif gpa >= 3.3: grade, rec = "A-", "Weak Buy"
+    elif gpa >= 3.0: grade, rec = "B+", "Hold/Buy"
+    elif gpa >= 2.7: grade, rec = "B",  "Hold"
+    elif gpa >= 2.3: grade, rec = "B-", "Hold/Sell"
+    elif gpa >= 2.0: grade, rec = "C+", "Weak Sell"
+    elif gpa >= 1.7: grade, rec = "C",  "Sell"
+    else:            grade, rec = "C-", "Strong Sell"
 
     result = copy.deepcopy(r)
     result.update({
-        "gpa":          gpa,
-        "grade":        grade,
-        "buy_signal":   gpa >= thresholds.get("min_gpa_to_buy",  3.5),
-        "sell_signal":  gpa <= thresholds.get("max_gpa_to_sell", 2.5),
-        "thresholds":   thresholds,
-        "weights_used": w,
+        "gpa":            gpa,
+        "grade":          grade,
+        "recommendation": rec,
+        "buy_signal":     gpa >= thresholds.get("min_gpa_to_buy",  3.5),
+        "sell_signal":    gpa <= thresholds.get("max_gpa_to_sell", 2.5),
+        "thresholds":     thresholds,
+        "weights_used":   w,
     })
     # Update per-category display weights so render_gpa_detail shows correct numbers
     if "sentiment" in result["categories"]:
@@ -790,19 +795,21 @@ def render_home():
         sym    = p["symbol"]
         raw_r  = st.session_state.positions_gpa.get(sym)
         gpa_r  = reweight_result(raw_r, active_strat) if raw_r else None
+        if gpa_r:
+            rec = gpa_r.get("recommendation") or gpa_recommendation(gpa_r["gpa"])
+        else:
+            rec = "—"
         rows.append({
-            "Symbol":  sym,
-            "Shares":  p["qty"],
-            "Avg Cost":f"${p['avg_cost']:.2f}",
-            "Price":   f"${p['cur_price']:.2f}",
-            "Value":   f"${p['mkt_value']:,.0f}",
-            "Gain $":  f"${p['gain_loss']:+,.2f}",
-            "Gain %":  f"{p['gain_pct']:+.1f}%",
-            "GPA":     f"{gpa_r['gpa']:.2f}" if gpa_r else "—",
-            "Grade":   gpa_r.get("grade","—") if gpa_r else "—",
-            "Signal":  ("BUY" if gpa_r.get("buy_signal") else
-                        "SELL" if gpa_r.get("sell_signal") else "HOLD")
-                       if gpa_r else "—",
+            "Symbol":         sym,
+            "Grade":          gpa_r.get("grade","—") if gpa_r else "—",
+            "GPA":            f"{gpa_r['gpa']:.2f}" if gpa_r else "—",
+            "Recommendation": rec,
+            "Shares":         p["qty"],
+            "Avg Cost":       f"${p['avg_cost']:.2f}",
+            "Price":          f"${p['cur_price']:.2f}",
+            "Value":          f"${p['mkt_value']:,.0f}",
+            "Gain $":         f"${p['gain_loss']:+,.2f}",
+            "Gain %":         f"{p['gain_pct']:+.1f}%",
         })
     st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
@@ -1241,7 +1248,9 @@ def render_chart():
 # ─────────────────────────────────────────────────────────────────────────────
 def render_configure():
     st.header("Configure")
-    cfg_tab1, cfg_tab2, cfg_tab3 = st.tabs(["🎯 Strategy & Weights", "🔑 API Keys", "⚙️ Advanced"])
+    cfg_tab1, cfg_tab4, cfg_tab2, cfg_tab3 = st.tabs(
+        ["🎯 Strategy & Weights", "📊 Strategy Tree (Excel)", "🔑 API Keys", "⚙️ Advanced"]
+    )
 
     # ── Strategy & Weights ─────────────────────────────────────────────────────
     with cfg_tab1:
@@ -1347,6 +1356,173 @@ def render_configure():
             st.session_state.strategy_name = "Default"
             st.success(f"Deleted '{edit_name}'")
             st.rerun()
+
+    # ── Strategy Tree (Excel) ─────────────────────────────────────────────────
+    with cfg_tab4:
+        st.subheader("Strategy Tree — Edit in Excel")
+        st.caption(
+            "Edit the full 3-level strategy tree (categories → subcategories → "
+            "components) in `Strategies.xlsx`. Upload the file here when you "
+            "want the app to pick up your changes."
+        )
+
+        xlsx_path = BASE_DIR / "Strategies.xlsx"
+
+        # File state
+        if xlsx_path.exists():
+            mtime = datetime.fromtimestamp(xlsx_path.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+            st.success(f"📄 Strategies.xlsx present · last modified {mtime}")
+        else:
+            st.info("No Strategies.xlsx in your Stock folder yet — upload one below to get started.")
+
+        col_up, col_dl = st.columns([3, 1])
+        with col_up:
+            uploaded = st.file_uploader(
+                "Replace Strategies.xlsx",
+                type=["xlsx"],
+                key="cfg_xlsx_upload",
+                help="Saves to Stock\\Strategies.xlsx and re-imports all strategies."
+            )
+            if uploaded is not None:
+                xlsx_path.write_bytes(uploaded.getvalue())
+                st.success(f"Saved {uploaded.name} → Strategies.xlsx")
+        with col_dl:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if xlsx_path.exists():
+                st.download_button(
+                    "⬇️ Download current",
+                    data=xlsx_path.read_bytes(),
+                    file_name="Strategies.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="cfg_xlsx_dl",
+                )
+
+        if not xlsx_path.exists():
+            st.stop()
+
+        # Import button
+        st.divider()
+        ic1, ic2 = st.columns([1, 4])
+        if ic1.button("📥 Import strategies", key="cfg_xlsx_import"):
+            result = STRAT_MGR.import_from_xlsx(xlsx_path)
+            if result["errors"]:
+                for e in result["errors"]:
+                    st.error(e)
+            else:
+                names = ", ".join(result["imported"]) or "(none)"
+                st.success(
+                    f"Imported {len(result['imported'])} strategies: {names}. "
+                    + (f"Active: **{result['active']}**." if result['active'] else "No ACTIVE flag set.")
+                )
+                if result["active"]:
+                    st.session_state.strategy_name = result["active"]
+        ic2.caption(
+            "Reads every strategy registered in the xlsx's `Strategies` sheet and "
+            "saves them to `strategies.json`. The strategy marked ACTIVE becomes "
+            "the current one."
+        )
+
+        # Preview of what's in the file
+        st.divider()
+        try:
+            from modules import strategy_xlsx as _sx
+            xlsx_data = _sx.load_xlsx(xlsx_path)
+        except Exception as e:
+            st.error(f"Couldn't parse Strategies.xlsx: {e}")
+            st.stop()
+
+        index = xlsx_data.get("_index", [])
+        if not index:
+            st.warning("The `Strategies` index sheet is empty. Add a row there for each strategy you want to use.")
+            st.stop()
+
+        # Show the strategies index
+        st.markdown("**Strategies in this file**")
+        import pandas as _pd
+        idx_df = _pd.DataFrame([{
+            "Active":       "✅" if e["active"] else "",
+            "Name":         e["name"],
+            "Sheet":        e["sheet"],
+            "Description":  e["description"],
+            "Last Modified": e["last_modified"],
+        } for e in index])
+        st.dataframe(idx_df, hide_index=True, use_container_width=True)
+
+        # Pick one to preview
+        names = [e["name"] for e in index if e["name"] in xlsx_data]
+        if not names:
+            st.warning("None of the strategies in the index could be parsed.")
+            st.stop()
+        active_idx = next((i for i, n in enumerate(names)
+                           if xlsx_data[n].get("active")), 0)
+        preview_name = st.selectbox("Preview tree for",
+                                    names, index=active_idx, key="cfg_xlsx_preview")
+        rich = xlsx_data[preview_name]
+        tree = rich["tree"]
+        known_keys = _sx.get_known_data_keys()
+
+        # Tree rendering
+        st.markdown(f"**{preview_name} — component tree**")
+        rows = []
+        for c in tree["categories"]:
+            rows.append({
+                "Level":         "Category",
+                "Item":          c["name"],
+                "Weight (norm)": f"{c['weight']*100:.1f}%",
+                "% of GPA":      f"{c['weight']*100:.1f}%",
+                "Higher=Better": "",
+                "Thresholds (x/y/z)": "",
+                "Data Key":      "",
+                "Available?":    "",
+            })
+            for s in c["subcategories"]:
+                rows.append({
+                    "Level":         "  Subcategory",
+                    "Item":          s["name"],
+                    "Weight (norm)": f"{s['weight']*100:.1f}%",
+                    "% of GPA":      f"{c['weight']*s['weight']*100:.1f}%",
+                    "Higher=Better": "",
+                    "Thresholds (x/y/z)": "",
+                    "Data Key":      "",
+                    "Available?":    "",
+                })
+                for p in s["components"]:
+                    avail = "✅" if p.get("data_key") in known_keys else "⚠️ needs wiring"
+                    thr_x, thr_y, thr_z = p.get("x"), p.get("y"), p.get("z")
+                    thr = ("—" if None in (thr_x, thr_y, thr_z)
+                           else f"{thr_x:g} / {thr_y:g} / {thr_z:g}")
+                    rows.append({
+                        "Level":         "    Component",
+                        "Item":          p["name"],
+                        "Weight (norm)": f"{p['weight']*100:.1f}%",
+                        "% of GPA":      f"{p['pct_of_gpa']*100:.2f}%",
+                        "Higher=Better": "Yes" if p.get("higher_better") else "No",
+                        "Thresholds (x/y/z)": thr,
+                        "Data Key":      p.get("data_key", ""),
+                        "Available?":    avail,
+                    })
+        st.dataframe(_pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+        # Data availability summary
+        comps_all = [p for c in tree["categories"]
+                     for s in c["subcategories"] for p in s["components"]]
+        comps_ok  = [p for p in comps_all if p.get("data_key") in known_keys]
+        comps_no  = [p for p in comps_all if p.get("data_key") not in known_keys]
+        weight_no = sum(p["pct_of_gpa"] for p in comps_no)
+        st.caption(
+            f"✅ {len(comps_ok)} of {len(comps_all)} components have data wired up · "
+            f"⚠️ {len(comps_no)} need wiring "
+            f"(carrying {weight_no*100:.1f}% of GPA — these are skipped at scoring time)."
+        )
+
+        st.divider()
+        st.markdown(
+            "**Note:** the scorer currently honors the category and subcategory "
+            "weights from this tree, but not yet the per-component weights, "
+            "x/y/z thresholds, or Higher=Better flag. Those are stored and shown "
+            "above so you can preview / edit in Excel; wiring them into the "
+            "scorer is a follow-up step."
+        )
 
     # ── API Keys ───────────────────────────────────────────────────────────────
     with cfg_tab2:
